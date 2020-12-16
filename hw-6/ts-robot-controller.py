@@ -25,14 +25,53 @@ def callbackPose(msg):
     poseflag=True
     print("Pose: ", msg.x, msg.y, msg.theta)
 
-def robot(): #robotu surekli hareket ettirir
-    dist_random = random.uniform(1, 5) # Robotu rastgele bir mesafeye gonderir
-    #if (pose.x > 0.5 or pose.x < 10.5) and (pose.y > 0.5 or pose.y< 10.5) : # duvara carpmadiysa
-    move(2, dist_random)
-    rotatate(0.1, math.pi/6)
-    #elif (pose.x < 10.5):
-     #   rotatate(3, math.pi - pose.theta)
+def robot(): #robotu surekli hareket ettiren fonksiyon
+    dist_random = random.uniform(1, 3) # Robotu rastgele bir mesafeye gonderir
+    angle_random = random.uniform(1, 18) # Robotu rastgele bir aci gonderir
+    if (pose.x > 0.5 or pose.x < 10.5) and (pose.y > 0.5 or pose.y< 10.5) : # duvara carpmadiysa surekli rastgele hareket eder ve doner
+        move(2, dist_random)
+        rotatate(0.1, (2*math.pi)/angle_random)
 
+#eger duvara carpti  ise duvardan isik gibi yansimasi icin
+#duvardan normale yaptigi aci kadar yansimasi icin (pi-tetha) kadar donmelidir
+#gerektigi kadar dondukten sonra biraz cizgisel yol katederek duvardan kurtulur
+
+    if pose.x > 10.5: # sag duvara carpti ise
+        rotatate(0.1, math.pi - pose.theta) 
+        turnBackWall(1, 2) 
+
+    elif pose.x < 0.5: # sol duvara carpti ise
+        rotatate(0.1, math.pi - pose.theta)
+        turnBackWall(1, 2)    
+
+    elif pose.y < 0.5: # alt duvara carpti ise
+        rotatate(0.1, math.pi - pose.theta)
+        turnBackWall(1, 2)
+
+    elif pose.y > 10.5: # ust duvara carpti ise
+        rotatate(0.1, math.pi - pose.theta)
+        turnBackWall(1, 2)        
+
+
+# duvara carpdiysa kacarak hareketine devam eder
+def turnBackWall(speed, distance):
+    print("duvardan kurtuluyoruz:")
+    x0 = pose.x
+    y0 = pose.y
+    vel_msg = Twist()
+    while True:
+        dist = math.sqrt((pose.x-x0)**2 + (pose.y-y0)**2)   #katedilen mesafe
+        if dist < 0.99 * distance:
+                if speed < maxLinVel: # maksimum hizi gecemez
+                    vel_msg.linear.x = speed
+                else:
+                    vel_msg.linear.x = maxLinVel    
+                vel_pub.publish(vel_msg) #publish edilen mesaj
+        else: 
+            vel_msg.linear.x = 0
+            vel_pub.publish(vel_msg) #publish edilen mesaj
+            break
+#duvara carpmadiysa
 def move(speed, distance):
     while poseflag ==False:
         rospy.sleep(0.01)
@@ -47,23 +86,18 @@ def move(speed, distance):
         print("travelled distance: ", dist)
         if (pose.x > 0.5 and pose.x < 10.5) and (pose.y > 0.5 and pose.y< 10.5) : # duvara carpmadiysa normal hareketine devam eder
             if dist < 0.99 * distance:
-                    if speed < maxLinVel: # maksimum hizi gecemez
+                if speed < maxLinVel: # maksimum hizi gecemez
                         vel_msg.linear.x = speed
-                    else:
+                else:
                         vel_msg.linear.x = maxLinVel    
-                    vel_pub.publish(vel_msg) #publish edilen mesaj
+                vel_pub.publish(vel_msg)
             else: 
                 vel_msg.linear.x = 0
-                vel_pub.publish(vel_msg) #publish edilen mesaj
+                vel_pub.publish(vel_msg)
+                
                 break
-        # duvara carptiysa donerek tekrar yoluna devam eder
-        elif pose.x > 10.5: # sag duvara carpti ise
-            rotatate(0.1, math.pi)
+        else:   #duvara carptiysa hareket fonktan cikar
             break
-        elif pose.x < 0.5: # sol duvara carpti ise
-            rotatate(0.1, math.pi - pose.theta)
-            break
-
         loop_rate.sleep()
 
 def rotatate(speed, angle):
@@ -74,17 +108,16 @@ def rotatate(speed, angle):
     while True:
         diff = abs(pose.theta-angle) # mutlak deger ile yoneldigimiz aci ile hedef arasindaki fark
         print("Angle Diff: ", diff)
-        if diff > 0.05:
+        if diff > 0.1:
                 if speed < maxAngVel: # maksimum hizi gecemez
                     vel_msg.angular.z = speed
                 else:
-                    vel_msg.linear.x = maxAngVel   
+                    vel_msg.angular.z = maxAngVel   
                 vel_pub.publish(vel_msg)
         else:
                 vel_msg.angular.z = 0
+                
                 vel_pub.publish(vel_msg)
-                if pose.x > 10.5: # eger duvara carptiysa dondukten sonra biraz ileri giderek duvardan kurtul
-                    move(2, 1)
                 break
         
         loop_rate.sleep()
